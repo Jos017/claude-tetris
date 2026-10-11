@@ -42,6 +42,19 @@ body {
   padding-top: 4px;
 }
 
+.title {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  line-height: 1;
+}
+
+.title span {
+  color: var(--c);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--c) 50%, transparent);
+}
+
 .panel-section {
   display: flex;
   flex-direction: column;
