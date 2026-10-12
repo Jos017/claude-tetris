@@ -28,6 +28,13 @@ const PIECES = [
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
 
+// Colores de canvas dependientes del tema (las piezas conservan su color; el borde les da contraste)
+const THEMES = {
+  dark:  { grid: '#22222e', edge: null,                  highlight: 'rgba(255,255,255,0.12)', ghost: 0.2 },
+  light: { grid: '#e1e3ee', edge: 'rgba(20,20,40,0.55)', highlight: 'rgba(255,255,255,0.35)', ghost: 0.45 },
+};
+let theme = 'dark';
+
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 const nextCanvas = document.getElementById('next-canvas');
@@ -39,6 +46,8 @@ const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
+const themeToggle = document.getElementById('theme-toggle');
+const themeLabel = document.getElementById('theme-label');
 
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 
@@ -163,13 +172,18 @@ function drawBlock(context, x, y, colorIndex, size, alpha) {
   context.fillStyle = color;
   context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
   // highlight
-  context.fillStyle = 'rgba(255,255,255,0.12)';
+  context.fillStyle = THEMES[theme].highlight;
   context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
+  if (THEMES[theme].edge) {
+    context.strokeStyle = THEMES[theme].edge;
+    context.lineWidth = 1;
+    context.strokeRect(x * size + 1.5, y * size + 1.5, size - 3, size - 3);
+  }
   context.globalAlpha = 1;
 }
 
 function drawGrid() {
-  ctx.strokeStyle = '#22222e';
+  ctx.strokeStyle = THEMES[theme].grid;
   ctx.lineWidth = 0.5;
   for (let c = 1; c < COLS; c++) {
     ctx.beginPath();
@@ -199,7 +213,7 @@ function draw() {
   for (let r = 0; r < current.shape.length; r++)
     for (let c = 0; c < current.shape[r].length; c++)
       if (current.shape[r][c])
-        drawBlock(ctx, current.x + c, gy + r, current.shape[r][c], BLOCK, 0.2);
+        drawBlock(ctx, current.x + c, gy + r, current.shape[r][c], BLOCK, THEMES[theme].ghost);
 
   // current piece
   for (let r = 0; r < current.shape.length; r++)
@@ -299,6 +313,29 @@ document.addEventListener('keydown', e => {
   updateHUD();
 });
 
+function setTheme(name, save = true) {
+  theme = name === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = theme;
+  const isLight = theme === 'light';
+  themeToggle.setAttribute('aria-checked', isLight);
+  themeLabel.textContent = isLight ? 'Modo oscuro' : 'Modo claro';
+  themeToggle.setAttribute('aria-label', themeLabel.textContent);
+  if (save) {
+    try { localStorage.setItem('theme', theme); } catch (e) { /* almacenamiento no disponible */ }
+  }
+  // En pausa/game over el loop no corre: repintar manualmente
+  if (current && next) { draw(); drawNext(); }
+}
+
+themeToggle.addEventListener('click', () => {
+  setTheme(theme === 'light' ? 'dark' : 'light');
+  themeToggle.blur(); // evitar que Space (hard drop) active el botón
+});
+
 restartBtn.addEventListener('click', init);
+
+let savedTheme = 'dark';
+try { savedTheme = localStorage.getItem('theme') || 'dark'; } catch (e) { /* ignorar */ }
+setTheme(savedTheme, false);
 
 init();
