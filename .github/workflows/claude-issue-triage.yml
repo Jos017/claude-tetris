@@ -67,7 +67,9 @@ jobs:
                Aplica con `gh issue edit ${{ github.event.issue.number }} --add-label ... --remove-label ...`.
             4. Publica el diagnóstico en UN solo comentario, reescribiéndolo si ya existe:
                `gh issue comment ${{ github.event.issue.number }} --edit-last --create-if-none --body "..."`
-               Escribe en español, con este formato (empieza con el marcador):
+               Escribe en español. El comentario DEBE estar en Markdown que GitHub renderice correctamente (GitHub Flavored Markdown): encabezados `##`/`###`, **negritas**, listas con `-` o numeradas, código inline con backticks, bloques de código con ``` y lenguaje (```js), y referencias a archivos como `game.js:123`. No uses HTML salvo el marcador, ni texto plano sin formato.
+               Pasa el body con un heredoc para conservar saltos de línea y backticks, ej: `gh issue comment N --edit-last --create-if-none --body "$(cat <<'EOF' ... EOF)"`.
+               Usa este formato (empieza con el marcador):
 
                <!-- claude-triage -->
                ## Diagnóstico de Claude
