@@ -1,0 +1,80 @@
+name: Claude Issue Triage
+
+on:
+  issues:
+    types: [opened, edited]
+
+concurrency:
+  group: triage-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  triage:
+    if: |
+      github.actor != 'github-actions[bot]' &&
+      !github.event.issue.pull_request &&
+      (github.event.action == 'opened' ||
+       github.event.changes.body != null ||
+       github.event.changes.title != null)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Ensure labels exist
+        run: |
+          create() { gh label create "$1" --color "$2" --description "$3" --force; }
+          create "priority:high"    "b60205" "Prioridad alta"
+          create "priority:medium"  "fbca04" "Prioridad media"
+          create "priority:low"     "0e8a16" "Prioridad baja"
+          create "area:gameplay"    "1d76db" "Lógica: colisiones, rotación, scoring, niveles"
+          create "area:rendering"   "5319e7" "Dibujo en canvas"
+          create "area:input"       "006b75" "Teclado / controles"
+          create "area:ui"          "c5def5" "HTML, CSS, HUD, overlay"
+          create "area:docs"        "0075ca" "README / documentación"
+          create "area:ci"          "ededed" "GitHub Actions / workflows"
+          create "triaged"          "bfdadc" "Analizado por Claude"
+
+      - name: Triage issue with Claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: >-
+            --allowedTools "Read,Glob,Grep,Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh label list:*)"
+          prompt: |
+            Repositorio: ${{ github.repository }}
+            Issue: #${{ github.event.issue.number }}
+            Evento: ${{ github.event.action }}
+
+            Eres el triager de issues de este proyecto (Tetris en JS vanilla). NO modifiques código ni abras PRs.
+
+            1. Ejecuta `gh issue view ${{ github.event.issue.number }}` y lee título, body y labels actuales.
+            2. Lee `CLAUDE.md` y el código relevante (`game.js`, `index.html`, `style.css`, `README.md`) para entender el problema.
+            3. Ejecuta `gh label list` y asigna SOLO labels existentes:
+               - exactamente 1 de tipo: `bug`, `enhancement`, `documentation` o `question`
+               - exactamente 1 `priority:high|medium|low`
+               - 1 o más `area:gameplay|rendering|input|ui|docs|ci`
+               - siempre `triaged`
+               Si el evento es `edited`, quita con `--remove-label` los labels de tipo/priority/area previos que ya no apliquen.
+               Aplica con `gh issue edit ${{ github.event.issue.number }} --add-label ... --remove-label ...`.
+            4. Publica el diagnóstico en UN solo comentario, reescribiéndolo si ya existe:
+               `gh issue comment ${{ github.event.issue.number }} --edit-last --create-if-none --body "..."`
+               Escribe en español, con este formato (empieza con el marcador):
+
+               <!-- claude-triage -->
+               ## Diagnóstico de Claude
+               **Resumen:** ...
+               **Labels asignados:** cada uno con justificación breve
+               **Archivos/funciones afectados:** `game.js:línea` — funciones concretas
+               **Causa probable / análisis:** ...
+               **Enfoque de solución sugerido:** pasos numerados, para implementar luego
+               **Riesgos / gotchas:** ej. tamaño de canvas hardcodeado en `index.html`, fórmula de velocidad duplicada en README, cantidad de piezas `7` en `randomPiece`
+               **Preguntas abiertas:** solo si el issue es ambiguo
