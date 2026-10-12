@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tetris</title>
   <link rel="stylesheet" href="style.css" />
+  <script>
+    try { document.documentElement.dataset.theme = localStorage.getItem('theme') === 'light' ? 'light' : 'dark'; }
+    catch (e) { document.documentElement.dataset.theme = 'dark'; }
+  </script>
 </head>
 <body>
   <div class="wrapper">
@@ -15,6 +19,11 @@
         <h1 class="title" aria-label="Tetris">
           <span style="--c:#ba68c8">T</span><span style="--c:#ffb74d">E</span><span style="--c:#ffd54f">T</span><span style="--c:#81c784">R</span><span style="--c:#4dd0e1">I</span><span style="--c:#e57373">S</span>
         </h1>
+
+        <button id="theme-toggle" class="theme-toggle" role="switch" aria-checked="false" aria-label="Modo claro">
+          <span class="switch"></span>
+          <span id="theme-label">Modo claro</span>
+        </button>
 
         <div class="panel-section">
           <span class="label">SCORE</span>
