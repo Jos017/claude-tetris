@@ -18,7 +18,20 @@ const COLORS = [
   '#4db6ac', // U (verde azulado)
   '#a1887f', // Y (marrón)
   '#fff176', // 1x1 - single (amarillo claro)
+  '#ff7043', // 13 bomba
+  '#fdd835', // 14 rayo
+  '#ab47bc', // 15 tinte
+  '#8d6e63', // 16 gravedad
+  '#4fc3f7', // 17 congelar
+  '#eceff1', // 18 comodín (solo en el tablero)
 ];
+
+// Power-ups: piezas 1x1 especiales (13–17). El 18 es el bloque comodín que deja el tinte.
+const POWER_TYPES = [13, 14, 15, 16, 17];
+const WILD = 18;
+const POWER_EVERY = 5;       // un power-up cada N líneas
+const FREEZE_MS = 5000;
+const ICONS = { 13: '💣', 14: '⚡', 15: '🎨', 16: '⏬', 17: '❄️', 18: '★' };
 
 const PIECES = [
   null,
@@ -34,6 +47,7 @@ const PIECES = [
   [[10,0,10],[10,10,10],[0,0,0]],             // U (pentominó)
   [[0,0,0,0],[11,11,11,11],[0,11,0,0],[0,0,0,0]], // Y (pentominó)
   [[12]],                                      // 1x1 - recompensa tras un Tetris
+  [[13]], [[14]], [[15]], [[16]], [[17]],      // power-ups: bomba, rayo, tinte, gravedad, congelar
 ];
 
 // Tipos que salen al azar: 1–8 uniformes; los pentominós (9–11) son ocasionales; el 1x1 solo como recompensa
@@ -66,6 +80,7 @@ const scoreEl = document.getElementById('score');
 const linesEl = document.getElementById('lines');
 const levelEl = document.getElementById('level');
 const comboEl = document.getElementById('combo');
+const statusEl = document.getElementById('status');
 const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
@@ -75,6 +90,7 @@ const themeLabel = document.getElementById('theme-label');
 
 let board, current, next, hold, holdUsed, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 let combo, b2b, lastRotate, effects, flashAt, flashPower;
+let pendingPower, nextPowerAt, freezeMs;
 let audioCtx = null, muted = false;
 
 // ---- Sonido (Web Audio sintetizado, sin archivos) ----
@@ -175,6 +191,61 @@ function isTSpin() {
   return filled >= 3;
 }
 
+// ---- Power-ups: se activan al aterrizar la pieza 1x1 y no dejan bloque ----
+function applyPower(piece) {
+  const px = piece.x, py = piece.y;
+  switch (piece.type) {
+    case 13: { // bomba: borra un área 3×3
+      let n = 0;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const y = py + dy, x = px + dx;
+          if (y >= 0 && y < ROWS && x >= 0 && x < COLS && board[y][x]) { board[y][x] = 0; n++; }
+        }
+      score += n * 10 * level;
+      announce('BOMBA', '#ff7043');
+      beep(90, 0.3, 'sawtooth', 0.08);
+      beep(60, 0.4, 'square', 0.08, 0.05);
+      break;
+    }
+    case 14: { // rayo: limpia la columna y la fila de la superficie donde cae
+      const row = Math.min(py + 1, ROWS - 1);
+      for (let c = 0; c < COLS; c++) board[row][c] = 0;
+      for (let r = 0; r < ROWS; r++) board[r][px] = 0;
+      score += 100 * level;
+      announce('RAYO', '#fdd835');
+      playNotes([1200, 800, 1600, 600], 0.04, 'sawtooth');
+      break;
+    }
+    case 15: { // tinte: el color más abundante pasa a comodín (se borra con la siguiente limpieza de líneas)
+      const counts = {};
+      for (const row of board) for (const v of row) if (v && v !== WILD) counts[v] = (counts[v] || 0) + 1;
+      const top = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+      if (top) {
+        for (const row of board) for (let c = 0; c < COLS; c++) if (row[c] === +top) row[c] = WILD;
+      }
+      announce('TINTE', '#ab47bc');
+      playNotes([440, 554, 659], 0.06, 'triangle');
+      break;
+    }
+    case 16: { // gravedad: compacta cada columna hacia abajo
+      for (let c = 0; c < COLS; c++) {
+        const col = [];
+        for (let r = 0; r < ROWS; r++) if (board[r][c]) col.push(board[r][c]);
+        for (let r = ROWS - 1; r >= 0; r--) board[r][c] = col.length ? col.pop() : 0;
+      }
+      announce('GRAVEDAD', '#8d6e63');
+      playNotes([300, 220, 160], 0.07, 'triangle');
+      break;
+    }
+    case 17: // congelar: detiene la caída automática
+      freezeMs = FREEZE_MS;
+      announce('CONGELAR', '#4fc3f7');
+      playNotes([1400, 1100, 900], 0.06, 'sine');
+      break;
+  }
+}
+
 function clearLines(tspin = false) {
   let cleared = 0;
   for (let r = ROWS - 1; r >= 0; r--) {
@@ -200,6 +271,9 @@ function clearLines(tspin = false) {
     b2b = hard;
     score += pts * level * mult;
     if (combo > 1) announce(`COMBO x${mult}`, '#4dd0e1');
+    let wilds = 0; // los comodines del tinte desaparecen con cualquier limpieza
+    for (const row of board) for (let c = 0; c < COLS; c++) if (row[c] === WILD) { row[c] = 0; wilds++; }
+    if (wilds) { score += wilds * 20 * level; announce(`COMODINES +${wilds * 20 * level}`, '#eceff1'); }
     if (board.every(row => row.every(v => v === 0))) {
       score += PERFECT_CLEAR_BONUS * level;
       announce('PERFECT CLEAR', '#81c784');
@@ -212,6 +286,7 @@ function clearLines(tspin = false) {
     flashAt = performance.now();
     flashPower = Math.min(0.15 + cleared * 0.1, 0.5);
     lines += cleared;
+    if (lines >= nextPowerAt) { pendingPower = true; nextPowerAt = lines - (lines % POWER_EVERY) + POWER_EVERY; }
     level = Math.floor(lines / 10) + 1;
     dropInterval = Math.max(100, 1000 - (level - 1) * 90);
   } else {
@@ -254,7 +329,8 @@ function softDrop() {
 
 function lockPiece() {
   const tspin = isTSpin();
-  merge();
+  if (POWER_TYPES.includes(current.type)) applyPower(current);
+  else merge();
   clearLines(tspin);
   holdUsed = false;
   spawn();
@@ -263,7 +339,12 @@ function lockPiece() {
 function spawn() {
   lastRotate = false;
   current = next;
-  next = randomPiece();
+  if (pendingPower) {
+    next = makePiece(POWER_TYPES[Math.floor(Math.random() * POWER_TYPES.length)]);
+    pendingPower = false;
+  } else {
+    next = randomPiece();
+  }
   if (collide(current.shape, current.x, current.y)) {
     endGame();
   }
@@ -291,6 +372,14 @@ function holdPiece() {
   if (collide(current.shape, current.x, current.y)) endGame();
 }
 
+// Efectos temporales activos (se actualiza cada frame; solo toca el DOM si cambia el texto)
+function updateStatus() {
+  const parts = [];
+  if (freezeMs > 0) parts.push(`❄ ${Math.ceil(freezeMs / 1000)}s`);
+  const text = parts.join(' ') || '–';
+  if (statusEl.textContent !== text) statusEl.textContent = text;
+}
+
 function updateHUD() {
   scoreEl.textContent = score.toLocaleString();
   linesEl.textContent = lines;
@@ -311,6 +400,15 @@ function drawBlock(context, x, y, colorIndex, size, alpha) {
     context.strokeStyle = THEMES[theme].edge;
     context.lineWidth = 1;
     context.strokeRect(x * size + 1.5, y * size + 1.5, size - 3, size - 3);
+  }
+  if (ICONS[colorIndex]) { // power-ups y comodín llevan un símbolo
+    context.fillStyle = '#222';
+    context.font = `${Math.floor(size * 0.6)}px sans-serif`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(ICONS[colorIndex], x * size + size / 2, y * size + size / 2 + 1);
+    context.textAlign = 'start';
+    context.textBaseline = 'alphabetic';
   }
   context.globalAlpha = 1;
 }
@@ -352,6 +450,11 @@ function draw() {
   for (let r = 0; r < current.shape.length; r++)
     for (let c = 0; c < current.shape[r].length; c++)
       drawBlock(ctx, current.x + c, current.y + r, current.shape[r][c], BLOCK);
+
+  if (freezeMs > 0) { // tinte azul mientras dura el congelar
+    ctx.fillStyle = 'rgba(79,195,247,0.14)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
 
   drawEffects();
 }
@@ -428,6 +531,10 @@ function loop(ts) {
   const dt = ts - lastTime;
   lastTime = ts;
   dropAccum += dt;
+  if (freezeMs > 0) { // congelar: la caída automática se detiene (las teclas siguen funcionando)
+    freezeMs = Math.max(0, freezeMs - dt);
+    dropAccum = 0;
+  }
   if (dropAccum >= dropInterval) {
     dropAccum = 0;
     if (!collide(current.shape, current.x, current.y + 1)) {
@@ -438,6 +545,7 @@ function loop(ts) {
     }
   }
   draw();
+  updateStatus();
   if (gameOver) return; // endGame corre dentro del frame actual: cancelAnimationFrame no lo detiene
   animId = requestAnimationFrame(loop);
 }
@@ -449,6 +557,9 @@ function init() {
   combo = 0;
   b2b = false;
   lastRotate = false;
+  pendingPower = false;
+  nextPowerAt = POWER_EVERY;
+  freezeMs = 0;
   effects = [];
   flashAt = 0;
   flashPower = 0;

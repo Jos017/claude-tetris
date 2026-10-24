@@ -114,6 +114,10 @@ body {
   letter-spacing: 1px;
 }
 
+.value.status {
+  font-size: 16px;
+}
+
 #next-canvas, #hold-canvas {
   display: block;
   border: 1px solid var(--border);

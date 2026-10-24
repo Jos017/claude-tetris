@@ -44,6 +44,7 @@ Es una versión jugable del Tetris clásico con todas las mecánicas que esperar
 - **Vista previa** de la siguiente pieza.
 - **Hold (reservar pieza)**: `C` o `Shift` guardan la pieza actual en el panel izquierdo y la intercambian si ya había una. Solo una vez por pieza; el slot se atenúa mientras está bloqueado.
 - **Sistema de puntuación** clásico de Tetris (100 / 300 / 500 / 800 multiplicado por nivel).
+- **Power-ups** (una pieza 1×1 especial cada 5 líneas, aparece como siguiente pieza): 💣 **Bomba** (borra un 3×3), ⚡ **Rayo** (limpia la columna y la fila de la superficie donde cae), 🎨 **Tinte** (el color más abundante pasa a comodín ★; todos los comodines desaparecen con la siguiente limpieza de líneas, +20 × nivel cada uno), ⏬ **Gravedad** (compacta los huecos de cada columna) y ❄️ **Congelar** (5 s sin caída automática; el estado se ve en `STATUS`).
 - **Combos y multiplicadores**: limpiar líneas en piezas consecutivas multiplica la puntuación (x2, x3… hasta x8). Bonus por **T-spin** (regla de 3 esquinas), **Back-to-Back** (Tetris/T-spin seguidos, ×1.5) y **Perfect Clear** (+2000 × nivel).
 - **Efectos**: textos flotantes y destello en el tablero, más sonidos sintetizados con Web Audio (sin archivos). `M` silencia.
 - **Niveles** que aumentan cada 10 líneas y aceleran la caída.
@@ -117,7 +118,7 @@ Aporta el aspecto visual con estética _dark / retro arcade_: fondo oscuro, tipo
 
 Contiene toda la lógica del juego. A grandes rasgos:
 
-- **Modelo del tablero**: una matriz `ROWS × COLS` donde cada celda guarda `0` (vacía) o un índice de color (1–12) que identifica la pieza.
+- **Modelo del tablero**: una matriz `ROWS × COLS` donde cada celda guarda `0` (vacía) o un índice de color (1–18) que identifica la pieza.
 - **Piezas**: definidas como matrices cuadradas. Para rotar se calcula la transposición + reverso de filas (`rotateCW`).
 - **Detección de colisiones** (`collide`): comprueba que ninguna celda de la pieza salga del tablero ni se solape con bloques ya fijados.
 - **Wall kicks** (`tryRotate`): si la rotación choca, intenta desplazar la pieza ±1 y ±2 columnas antes de descartar el giro.
@@ -182,7 +183,7 @@ Algunos parámetros fáciles de tunear en `game.js`:
 | `COLS`         | Columnas del tablero                     | `10`                  |
 | `ROWS`         | Filas del tablero                        | `20`                  |
 | `BLOCK`        | Tamaño en píxeles de cada celda          | `30`                  |
-| `COLORS`       | Paleta de colores por tipo de pieza      | 12 colores            |
+| `COLORS`       | Paleta de colores por tipo de pieza      | 18 colores            |
 | `LINE_SCORES`  | Puntos por 1, 2, 3 o 4 líneas eliminadas | `[0,100,300,500,800]` |
 | `dropInterval` | Velocidad inicial de caída en ms         | `1000`                |
 

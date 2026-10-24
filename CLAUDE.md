@@ -15,10 +15,11 @@ Open `index.html` directly, or serve statically: `python -m http.server 8000` th
 Three files: `index.html` (DOM + two canvases), `style.css`, `game.js` (all logic, single script, `'use strict'`, global state).
 
 - Global mutable state declared in one `let` line (`board`, `current`, `next`, `score`, ... `animId`); `init()` resets it and doubles as restart handler.
-- Board: `ROWS×COLS` matrix, `0` = empty, `1–12` = index into both `COLORS` and `PIECES` (same index scheme).
+- Board: `ROWS×COLS` matrix, `0` = empty, `1–18` = index into both `COLORS` and `PIECES` (same index scheme).
 - Flow: `loop` (rAF, accumulates `dropAccum` vs `dropInterval`) → `lockPiece` → `merge` → `clearLines` (updates score/level/`dropInterval`) → `spawn` (calls `endGame` if new piece collides).
 - Pause/game over work by `cancelAnimationFrame(animId)`; unpause restarts `loop` manually. Overlay shared for both states.
 - Scoring lives in `clearLines(tspin)`: combo multiplier (`combo`, cap `MAX_COMBO`), B2B (`b2b`), T-spin via `isTSpin()` (needs `lastRotate`, reset on any move/drop/spawn/hold), perfect clear. Feedback = `announce()` floating texts + `flashAt` flash (drawn in `drawEffects`) + `beep()`/`playNotes()` Web Audio (`muted` toggled with `M`).
+- Power-ups: 1×1 pieces `13–17` (`POWER_TYPES`) queued via `pendingPower` (every `POWER_EVERY` lines) in `spawn`; `lockPiece` calls `applyPower` instead of `merge`. `18` = `WILD` board-only cell (from "tinte"), wiped by the next line clear. `ICONS` map draws the symbol in `drawBlock`. Freeze = `freezeMs` countdown in `loop`; `updateStatus` renders active timers.
 - Rotation: `rotateCW` + horizontal kick list `[0,-1,1,-2,2]` in `tryRotate` (no SRS, no floor kicks).
 - Input: single `keydown` listener using `e.code`; calls `updateHUD()` after every key.
 
