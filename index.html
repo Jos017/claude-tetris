@@ -13,17 +13,11 @@
 <body>
   <div class="wrapper">
     <div class="game-container">
-      <canvas id="board" width="300" height="600"></canvas>
-
-      <aside class="panel">
-        <h1 class="title" aria-label="Tetris">
-          <span style="--c:#ba68c8">T</span><span style="--c:#ffb74d">E</span><span style="--c:#ffd54f">T</span><span style="--c:#81c784">R</span><span style="--c:#4dd0e1">I</span><span style="--c:#e57373">S</span>
-        </h1>
-
-        <button id="theme-toggle" class="theme-toggle" role="switch" aria-checked="false" aria-label="Modo claro">
-          <span class="switch"></span>
-          <span id="theme-label">Modo claro</span>
-        </button>
+      <aside class="panel panel-left">
+        <div class="panel-section">
+          <span class="label">HOLD</span>
+          <canvas id="hold-canvas" width="120" height="120"></canvas>
+        </div>
 
         <div class="panel-section">
           <span class="label">SCORE</span>
@@ -37,6 +31,19 @@
           <span class="label">LEVEL</span>
           <span class="value" id="level">1</span>
         </div>
+      </aside>
+
+      <canvas id="board" width="300" height="600"></canvas>
+
+      <aside class="panel">
+        <h1 class="title" aria-label="Tetris">
+          <span style="--c:#ba68c8">T</span><span style="--c:#ffb74d">E</span><span style="--c:#ffd54f">T</span><span style="--c:#81c784">R</span><span style="--c:#4dd0e1">I</span><span style="--c:#e57373">S</span>
+        </h1>
+
+        <button id="theme-toggle" class="theme-toggle" role="switch" aria-checked="false" aria-label="Modo claro">
+          <span class="switch"></span>
+          <span id="theme-label">Modo claro</span>
+        </button>
 
         <div class="panel-section">
           <span class="label">NEXT</span>
@@ -50,6 +57,7 @@
             <li><kbd>↑</kbd> rotar</li>
             <li><kbd>↓</kbd> bajar</li>
             <li><kbd>Space</kbd> caída</li>
+            <li><kbd>C</kbd> reservar</li>
             <li><kbd>P</kbd> pausa</li>
           </ul>
         </div>
