@@ -219,6 +219,41 @@ kbd {
   border-radius: 4px;
 }
 
+/* ---- Selector de skin ---- */
+.skin-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skin-picker select {
+  background: var(--kbd-bg);
+  color: var(--text);
+  border: 1px solid var(--kbd-border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.skin-picker select:hover,
+.skin-picker select:focus-visible {
+  border-color: var(--value);
+}
+
+/* Neón: lienzos siempre negros, también en tema claro */
+[data-skin="neon"] #board,
+[data-skin="neon"] #next-canvas,
+[data-skin="neon"] #hold-canvas,
+[data-skin="neon"] #queue-canvas {
+  background: #000;
+  border-color: #1a2a3a;
+}
+
+[data-skin="neon"] #board {
+  box-shadow: 0 0 24px rgba(0, 229, 255, 0.25);
+}
+
 /* ---- Barra de energía ---- */
 .energy {
   width: 100%;
