@@ -24,11 +24,13 @@ const COLORS = [
   '#8d6e63', // 16 gravedad
   '#4fc3f7', // 17 congelar
   '#eceff1', // 18 comodín (solo en el tablero)
+  '#546e7a', // 19 basura (modo desafío)
 ];
 
 // Power-ups: piezas 1x1 especiales (13–17). El 18 es el bloque comodín que deja el tinte.
 const POWER_TYPES = [13, 14, 15, 16, 17];
 const WILD = 18;
+const GARBAGE = 19;
 const POWER_EVERY = 5;       // un power-up cada N líneas
 const FREEZE_MS = 5000;
 const ENERGY_MAX = 100;
@@ -36,6 +38,16 @@ const ENERGY_PER_LINE = 10;
 const PEEK_MS = 15000;
 const SLOW_MS = 10000;
 const SLOW_FACTOR = 2.5;     // la caída tarda 2.5× más durante "ralentizar"
+// Modos desafío (el clásico es mode = null). Opciones: goalLines, timeLimit, surviveMs (ms),
+// garbageEvery (ms), prefill (filas), invisible, startLevel, reverseRot
+const CHALLENGES = {
+  sprint:     { name: 'Sprint', desc: 'Limpia 40 líneas en 2:00', goalLines: 40, timeLimit: 120000 },
+  basura:     { name: 'Basura', desc: 'Sobrevive 90 s: sube basura cada 10 s', surviveMs: 90000, garbageEvery: 10000 },
+  fijos:      { name: 'Tablero fijo', desc: 'Limpia 15 líneas con bloques pre-colocados', goalLines: 15, prefill: 6 },
+  invisibles: { name: 'Invisibles', desc: 'Limpia 10 líneas: las piezas se ocultan al asentarse', goalLines: 10, invisible: true },
+  inversa:    { name: 'Rotación inversa', desc: 'Nivel 6 con el giro invertido: 15 líneas', goalLines: 15, startLevel: 6, reverseRot: true },
+};
+const MODE_KEYS = Object.keys(CHALLENGES);
 const ICONS = { 13: '💣', 14: '⚡', 15: '🎨', 16: '⏬', 17: '❄️', 18: '★' };
 
 const PIECES = [
@@ -92,6 +104,12 @@ const queueSection = document.getElementById('queue-section');
 const queueCanvas = document.getElementById('queue-canvas');
 const queueCtx = queueCanvas.getContext('2d');
 const abilityOverlay = document.getElementById('ability-overlay');
+const modeOverlay = document.getElementById('mode-overlay');
+const goalSection = document.getElementById('goal-section');
+const goalLabel = document.getElementById('goal-label');
+const goalEl = document.getElementById('goal');
+const modesBtn = document.getElementById('modes-btn');
+const overlayModesBtn = document.getElementById('overlay-modes-btn');
 const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
@@ -102,7 +120,8 @@ const themeLabel = document.getElementById('theme-label');
 let board, current, next, hold, holdUsed, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 let combo, b2b, lastRotate, effects, flashAt, flashPower;
 let pendingPower, nextPowerAt, freezeMs;
-let queue, energy, peekMs, slowMs, undoSnap, menuOpen;
+let queue, energy, peekMs, slowMs, undoSnap, menuOpen, activeMenu;
+let mode = null, baseLevel, elapsed, garbageAccum, lockedAt;
 let audioCtx = null, muted = false;
 
 // ---- Sonido (Web Audio sintetizado, sin archivos) ----
@@ -190,8 +209,12 @@ function rotateCW(shape) {
   return result;
 }
 
+function rotateCCW(shape) {
+  return rotateCW(rotateCW(rotateCW(shape)));
+}
+
 function tryRotate() {
-  const rotated = rotateCW(current.shape);
+  const rotated = mode && mode.reverseRot ? rotateCCW(current.shape) : rotateCW(current.shape);
   const kicks = [0, -1, 1, -2, 2];
   for (const kick of kicks) {
     if (!collide(rotated, current.x + kick, current.y)) {
@@ -320,7 +343,7 @@ function clearLines(tspin = false) {
     lines += cleared;
     energy = Math.min(ENERGY_MAX, energy + cleared * ENERGY_PER_LINE);
     if (lines >= nextPowerAt) { pendingPower = true; nextPowerAt = lines - (lines % POWER_EVERY) + POWER_EVERY; }
-    level = Math.floor(lines / 10) + 1;
+    level = baseLevel + Math.floor(lines / 10);
     dropInterval = Math.max(100, 1000 - (level - 1) * 90);
   } else {
     combo = 0;
@@ -333,6 +356,7 @@ function clearLines(tspin = false) {
     }
   }
   updateHUD();
+  checkChallenge();
 }
 
 function ghostY() {
@@ -368,7 +392,9 @@ function lockPiece() {
   const tspin = isTSpin();
   if (POWER_TYPES.includes(current.type)) applyPower(current);
   else merge();
+  lockedAt = performance.now();
   clearLines(tspin);
+  if (gameOver) return; // desafío completado en esta limpieza
   holdUsed = false;
   spawn();
 }
@@ -472,17 +498,26 @@ function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawGrid();
 
-  // board
-  for (let r = 0; r < ROWS; r++)
-    for (let c = 0; c < COLS; c++)
-      drawBlock(ctx, c, r, board[r][c], BLOCK);
+  // board (modo Invisibles: visible 0.8 s tras asentar una pieza y luego se desvanece)
+  const hidden = !!(mode && mode.invisible);
+  let boardAlpha = 1;
+  if (hidden) {
+    const age = performance.now() - lockedAt;
+    boardAlpha = age < 800 ? 1 : Math.max(0, 1 - (age - 800) / 700);
+  }
+  if (boardAlpha > 0)
+    for (let r = 0; r < ROWS; r++)
+      for (let c = 0; c < COLS; c++)
+        drawBlock(ctx, c, r, board[r][c], BLOCK, boardAlpha);
 
-  // ghost
-  const gy = ghostY();
-  for (let r = 0; r < current.shape.length; r++)
-    for (let c = 0; c < current.shape[r].length; c++)
-      if (current.shape[r][c])
-        drawBlock(ctx, current.x + c, gy + r, current.shape[r][c], BLOCK, THEMES[theme].ghost);
+  // ghost (oculto en Invisibles: delataría la altura de la pila)
+  if (!hidden) {
+    const gy = ghostY();
+    for (let r = 0; r < current.shape.length; r++)
+      for (let c = 0; c < current.shape[r].length; c++)
+        if (current.shape[r][c])
+          drawBlock(ctx, current.x + c, gy + r, current.shape[r][c], BLOCK, THEMES[theme].ghost);
+  }
 
   // current piece
   for (let r = 0; r < current.shape.length; r++)
@@ -560,8 +595,52 @@ function endGame() {
   gameOver = true;
   cancelAnimationFrame(animId);
   overlayTitle.textContent = 'GAME OVER';
+  overlayTitle.classList.remove('win');
   overlayScore.textContent = `Puntuación: ${score.toLocaleString()}`;
   overlay.classList.remove('hidden');
+}
+
+// ---- Modo desafío ----
+function fmtTime(ms) {
+  const sec = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+}
+
+function updateGoal() {
+  if (!mode) return;
+  const text = mode.surviveMs
+    ? `Faltan ${fmtTime(mode.surviveMs - elapsed)}`
+    : `${lines}/${mode.goalLines}` + (mode.timeLimit ? ` · ${fmtTime(mode.timeLimit - elapsed)}` : '');
+  if (goalEl.textContent !== text) goalEl.textContent = text;
+}
+
+function checkChallenge() {
+  if (!mode || gameOver) return;
+  if (mode.goalLines && lines >= mode.goalLines) finishChallenge(true);
+  else if (mode.surviveMs && elapsed >= mode.surviveMs) finishChallenge(true);
+  else if (mode.timeLimit && elapsed >= mode.timeLimit) finishChallenge(false);
+}
+
+function finishChallenge(win) {
+  gameOver = true;
+  cancelAnimationFrame(animId);
+  overlayTitle.textContent = win ? '¡DESAFÍO COMPLETADO!' : 'TIEMPO AGOTADO';
+  overlayTitle.classList.toggle('win', win);
+  overlayScore.textContent = `${mode.name} · ${fmtTime(elapsed)} · Puntuación: ${score.toLocaleString()}`;
+  overlay.classList.remove('hidden');
+  if (win) playNotes([523, 659, 784, 1047, 1319], 0.09, 'triangle');
+}
+
+// Modo Basura: sube una fila con un hueco; si no hay espacio arriba, game over
+function addGarbageRow() {
+  undoSnap = null;
+  beep(110, 0.15, 'sawtooth', 0.06);
+  if (board[0].some(Boolean)) { endGame(); return; }
+  board.shift();
+  const hole = Math.floor(Math.random() * COLS);
+  board.push(Array.from({ length: COLS }, (_, c) => (c === hole ? 0 : GARBAGE)));
+  while (current.y > 0 && collide(current.shape, current.x, current.y)) current.y--; // empuja la pieza activa
+  if (collide(current.shape, current.x, current.y)) endGame();
 }
 
 // ---- Habilidades (se cargan con la barra de energía; E abre el menú) ----
@@ -606,21 +685,37 @@ const ABILITIES = {
   },
 };
 
-function openAbilityMenu() {
-  if (energy < ENERGY_MAX || paused || gameOver || menuOpen) return;
+// Menús modales (habilidades, modos): pausan la partida mientras están abiertos
+function openMenu(el) {
+  if (menuOpen || (paused && !gameOver)) return;
   menuOpen = true;
-  paused = true;
-  cancelAnimationFrame(animId);
-  abilityOverlay.classList.remove('hidden');
+  activeMenu = el;
+  if (!gameOver) {
+    paused = true;
+    cancelAnimationFrame(animId);
+  }
+  el.classList.remove('hidden');
 }
 
-function closeAbilityMenu() {
+function closeMenu() {
   if (!menuOpen) return;
   menuOpen = false;
+  activeMenu.classList.add('hidden');
+  activeMenu = null;
+  if (gameOver) return;
   paused = false;
-  abilityOverlay.classList.add('hidden');
   lastTime = performance.now();
   loop(lastTime);
+}
+
+function openAbilityMenu() {
+  if (energy < ENERGY_MAX || gameOver) return;
+  openMenu(abilityOverlay);
+}
+
+function startMode(key) {
+  mode = CHALLENGES[key] || null; // clave vacía = clásico
+  init();
 }
 
 function useAbility(n) {
@@ -629,7 +724,7 @@ function useAbility(n) {
   beep(660, 0.1, 'triangle');
   beep(990, 0.15, 'triangle', 0.05, 0.08);
   updateHUD();
-  closeAbilityMenu();
+  closeMenu();
   draw();
 }
 
@@ -660,7 +755,12 @@ function loop(ts) {
     peekMs = Math.max(0, peekMs - dt);
     if (peekMs === 0) { queueSection.classList.add('hidden'); drawQueue(); }
   }
-  if (dropAccum >= (slowMs > 0 ? dropInterval * SLOW_FACTOR : dropInterval)) {
+  elapsed += dt;
+  if (mode && mode.garbageEvery) {
+    garbageAccum += dt;
+    if (garbageAccum >= mode.garbageEvery) { garbageAccum = 0; addGarbageRow(); }
+  }
+  if (!gameOver && dropAccum >= (slowMs > 0 ? dropInterval * SLOW_FACTOR : dropInterval)) {
     dropAccum = 0;
     if (!collide(current.shape, current.x, current.y + 1)) {
       current.y++;
@@ -669,14 +769,26 @@ function loop(ts) {
       lockPiece();
     }
   }
+  checkChallenge();
   draw();
   updateStatus();
+  updateGoal();
   if (gameOver) return; // endGame corre dentro del frame actual: cancelAnimationFrame no lo detiene
   animId = requestAnimationFrame(loop);
 }
 
 function init() {
   board = createBoard();
+  baseLevel = mode && mode.startLevel ? mode.startLevel : 1;
+  elapsed = 0;
+  garbageAccum = 0;
+  lockedAt = performance.now();
+  if (mode && mode.prefill) { // bloques fijos: cada fila con un hueco al azar
+    for (let r = ROWS - mode.prefill; r < ROWS; r++) {
+      const hole = Math.floor(Math.random() * COLS);
+      for (let c = 0; c < COLS; c++) if (c !== hole && Math.random() < 0.75) board[r][c] = GARBAGE;
+    }
+  }
   hold = null;
   holdUsed = false;
   combo = 0;
@@ -694,15 +806,20 @@ function init() {
   fillQueue();
   queueSection.classList.add('hidden');
   abilityOverlay.classList.add('hidden');
+  modeOverlay.classList.add('hidden');
+  overlayTitle.classList.remove('win');
+  activeMenu = null;
   effects = [];
+  goalSection.classList.toggle('hidden', !mode);
+  if (mode) { goalLabel.textContent = mode.name.toUpperCase(); announce(mode.name, '#7aa2f7'); }
   flashAt = 0;
   flashPower = 0;
   score = 0;
   lines = 0;
-  level = 1;
+  level = baseLevel;
   paused = false;
   gameOver = false;
-  dropInterval = 1000;
+  dropInterval = Math.max(100, 1000 - (level - 1) * 90);
   dropAccum = 0;
   lastTime = performance.now();
   next = makePiece(queue.shift());
@@ -716,8 +833,9 @@ function init() {
 
 document.addEventListener('keydown', e => {
   if (menuOpen) {
-    if (e.code === 'Escape' || e.code === 'KeyE') closeAbilityMenu();
-    else if (/^(Digit|Numpad)[1-4]$/.test(e.code)) useAbility(+e.code.slice(-1));
+    if (e.code === 'Escape' || (e.code === 'KeyE' && activeMenu === abilityOverlay)) closeMenu();
+    else if (activeMenu === abilityOverlay && /^(Digit|Numpad)[1-4]$/.test(e.code)) useAbility(+e.code.slice(-1));
+    else if (activeMenu === modeOverlay && /^(Digit|Numpad)[0-5]$/.test(e.code)) startMode(MODE_KEYS[+e.code.slice(-1) - 1]);
     return;
   }
   if (e.code === 'KeyE') { openAbilityMenu(); return; }
@@ -773,6 +891,10 @@ themeToggle.addEventListener('click', () => {
 restartBtn.addEventListener('click', init);
 document.querySelectorAll('[data-ability]').forEach(btn =>
   btn.addEventListener('click', () => useAbility(+btn.dataset.ability)));
+document.querySelectorAll('[data-mode]').forEach(btn =>
+  btn.addEventListener('click', () => startMode(btn.dataset.mode)));
+modesBtn.addEventListener('click', () => { modesBtn.blur(); openMenu(modeOverlay); });
+overlayModesBtn.addEventListener('click', () => openMenu(modeOverlay));
 
 let savedTheme = 'dark';
 try { savedTheme = localStorage.getItem('theme') || 'dark'; } catch (e) { /* ignorar */ }

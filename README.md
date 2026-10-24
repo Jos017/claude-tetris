@@ -46,6 +46,7 @@ Es una versión jugable del Tetris clásico con todas las mecánicas que esperar
 - **Sistema de puntuación** clásico de Tetris (100 / 300 / 500 / 800 multiplicado por nivel).
 - **Power-ups** (una pieza 1×1 especial cada 5 líneas, aparece como siguiente pieza): 💣 **Bomba** (borra un 3×3), ⚡ **Rayo** (limpia la columna y la fila de la superficie donde cae), 🎨 **Tinte** (el color más abundante pasa a comodín ★; todos los comodines desaparecen con la siguiente limpieza de líneas, +20 × nivel cada uno), ⏬ **Gravedad** (compacta los huecos de cada columna) y ❄️ **Congelar** (5 s sin caída automática; el estado se ve en `STATUS`).
 - **Habilidades**: una barra de energía (+10 por línea) se llena y con `E` se abre un menú (el juego se pausa) para elegir: `1` ver las próximas 5 piezas (15 s), `2` intercambiar la pieza actual, `3` ralentizar el tiempo (10 s) o `4` deshacer la última colocación. Cada uso consume toda la barra. «Reservar pieza» es el Hold (`C`).
+- **Modos desafío** (botón «Modos de juego» o teclas `0`–`5` en el menú): **Sprint** (40 líneas en 2:00), **Basura** (sobrevive 90 s mientras sube una fila con hueco cada 10 s), **Tablero fijo** (15 líneas con bloques pre-colocados), **Invisibles** (las piezas se ocultan poco después de asentarse; sin pieza fantasma) y **Rotación inversa** (empieza en nivel 6 con el giro invertido). El panel muestra el objetivo y el tiempo restante.
 - **Combos y multiplicadores**: limpiar líneas en piezas consecutivas multiplica la puntuación (x2, x3… hasta x8). Bonus por **T-spin** (regla de 3 esquinas), **Back-to-Back** (Tetris/T-spin seguidos, ×1.5) y **Perfect Clear** (+2000 × nivel).
 - **Efectos**: textos flotantes y destello en el tablero, más sonidos sintetizados con Web Audio (sin archivos). `M` silencia.
 - **Niveles** que aumentan cada 10 líneas y aceleran la caída.
@@ -120,7 +121,7 @@ Aporta el aspecto visual con estética _dark / retro arcade_: fondo oscuro, tipo
 
 Contiene toda la lógica del juego. A grandes rasgos:
 
-- **Modelo del tablero**: una matriz `ROWS × COLS` donde cada celda guarda `0` (vacía) o un índice de color (1–18) que identifica la pieza.
+- **Modelo del tablero**: una matriz `ROWS × COLS` donde cada celda guarda `0` (vacía) o un índice de color (1–19) que identifica la pieza.
 - **Piezas**: definidas como matrices cuadradas. Para rotar se calcula la transposición + reverso de filas (`rotateCW`).
 - **Detección de colisiones** (`collide`): comprueba que ninguna celda de la pieza salga del tablero ni se solape con bloques ya fijados.
 - **Wall kicks** (`tryRotate`): si la rotación choca, intenta desplazar la pieza ±1 y ±2 columnas antes de descartar el giro.
@@ -170,7 +171,7 @@ Cuando una pieza recién generada ya colisiona al aparecer (`spawn`), se dispara
 03-tetris/
 ├── index.html      # Estructura del DOM y canvas
 ├── style.css       # Estilos del juego (dark theme)
-├── game.js         # Toda la lógica del Tetris (~300 líneas)
+├── game.js         # Toda la lógica del Tetris (~900 líneas)
 └── README.md
 ```
 
@@ -185,9 +186,10 @@ Algunos parámetros fáciles de tunear en `game.js`:
 | `COLS`         | Columnas del tablero                     | `10`                  |
 | `ROWS`         | Filas del tablero                        | `20`                  |
 | `BLOCK`        | Tamaño en píxeles de cada celda          | `30`                  |
-| `COLORS`       | Paleta de colores por tipo de pieza      | 18 colores            |
+| `COLORS`       | Paleta de colores por tipo de pieza      | 19 colores            |
 | `LINE_SCORES`  | Puntos por 1, 2, 3 o 4 líneas eliminadas | `[0,100,300,500,800]` |
-| `dropInterval` | Velocidad inicial de caída en ms         | `1000`                |
+| `dropInterval` | Velocidad inicial de caída en ms (`init`)| `1000` (nivel 1)      |
+| `CHALLENGES`   | Definición de los modos desafío          | 5 modos               |
 
 > Si cambias `COLS`, `ROWS` o `BLOCK`, recuerda ajustar también `width` y `height` del `<canvas id="board">` en `index.html` para que coincida (`COLS × BLOCK` × `ROWS × BLOCK`).
 

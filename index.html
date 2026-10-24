@@ -43,6 +43,10 @@
           <span class="label">ENERGÍA (E)</span>
           <div class="energy" id="energy"><div class="energy-fill" id="energy-fill"></div></div>
         </div>
+        <div class="panel-section hidden" id="goal-section">
+          <span class="label" id="goal-label">OBJETIVO</span>
+          <span class="value status" id="goal">–</span>
+        </div>
       </aside>
 
       <canvas id="board" width="300" height="600"></canvas>
@@ -56,6 +60,8 @@
           <span class="switch"></span>
           <span id="theme-label">Modo claro</span>
         </button>
+
+        <button id="modes-btn" class="side-btn">Modos de juego</button>
 
         <div class="panel-section">
           <span class="label">NEXT</span>
@@ -99,6 +105,20 @@
         <p id="overlay-title">GAME OVER</p>
         <p id="overlay-score"></p>
         <button id="restart-btn">Reiniciar</button>
+        <button id="overlay-modes-btn" class="side-btn">Modos de juego</button>
+      </div>
+    </div>
+
+    <div id="mode-overlay" class="overlay hidden">
+      <div class="overlay-box">
+        <p class="menu-title">MODOS</p>
+        <button class="menu-btn" data-mode=""><kbd>0</kbd> Clásico</button>
+        <button class="menu-btn" data-mode="sprint"><kbd>1</kbd> Sprint · 40 líneas en 2:00</button>
+        <button class="menu-btn" data-mode="basura"><kbd>2</kbd> Basura · sobrevive 90 s</button>
+        <button class="menu-btn" data-mode="fijos"><kbd>3</kbd> Tablero fijo · 15 líneas</button>
+        <button class="menu-btn" data-mode="invisibles"><kbd>4</kbd> Invisibles · 10 líneas</button>
+        <button class="menu-btn" data-mode="inversa"><kbd>5</kbd> Rotación inversa · nivel 6</button>
+        <p class="menu-hint">Esc para volver</p>
       </div>
     </div>
   </div>

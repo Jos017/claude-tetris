@@ -278,6 +278,25 @@ kbd {
   color: var(--muted);
 }
 
+.side-btn {
+  background: none;
+  color: var(--muted);
+  border: 1px solid var(--kbd-border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.side-btn:hover {
+  color: var(--text);
+  border-color: var(--value);
+}
+
+#overlay-title.win {
+  color: #81c784;
+}
+
 /* ---- Overlay ---- */
 .overlay {
   position: absolute;
