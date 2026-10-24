@@ -39,6 +39,10 @@
           <span class="label">STATUS</span>
           <span class="value status" id="status">–</span>
         </div>
+        <div class="panel-section">
+          <span class="label">ENERGÍA (E)</span>
+          <div class="energy" id="energy"><div class="energy-fill" id="energy-fill"></div></div>
+        </div>
       </aside>
 
       <canvas id="board" width="300" height="600"></canvas>
@@ -58,6 +62,11 @@
           <canvas id="next-canvas" width="120" height="120"></canvas>
         </div>
 
+        <div class="panel-section hidden" id="queue-section">
+          <span class="label">PRÓXIMAS</span>
+          <canvas id="queue-canvas" width="140" height="28"></canvas>
+        </div>
+
         <div class="panel-section controls">
           <span class="label">CONTROLS</span>
           <ul>
@@ -66,11 +75,23 @@
             <li><kbd>↓</kbd> bajar</li>
             <li><kbd>Space</kbd> caída</li>
             <li><kbd>C</kbd> reservar</li>
+            <li><kbd>E</kbd> habilidad</li>
             <li><kbd>P</kbd> pausa</li>
             <li><kbd>M</kbd> sonido on/off</li>
           </ul>
         </div>
       </aside>
+    </div>
+
+    <div id="ability-overlay" class="overlay hidden">
+      <div class="overlay-box">
+        <p class="menu-title">HABILIDAD</p>
+        <button class="menu-btn" data-ability="1"><kbd>1</kbd> Ver las próximas 5 piezas (15 s)</button>
+        <button class="menu-btn" data-ability="2"><kbd>2</kbd> Intercambiar la pieza actual</button>
+        <button class="menu-btn" data-ability="3"><kbd>3</kbd> Ralentizar el tiempo (10 s)</button>
+        <button class="menu-btn" data-ability="4"><kbd>4</kbd> Deshacer la última colocación</button>
+        <p class="menu-hint">Esc para cancelar · Reservar pieza: <kbd>C</kbd></p>
+      </div>
     </div>
 
     <div id="overlay" class="overlay hidden">

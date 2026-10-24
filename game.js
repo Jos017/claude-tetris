@@ -31,6 +31,11 @@ const POWER_TYPES = [13, 14, 15, 16, 17];
 const WILD = 18;
 const POWER_EVERY = 5;       // un power-up cada N líneas
 const FREEZE_MS = 5000;
+const ENERGY_MAX = 100;
+const ENERGY_PER_LINE = 10;
+const PEEK_MS = 15000;
+const SLOW_MS = 10000;
+const SLOW_FACTOR = 2.5;     // la caída tarda 2.5× más durante "ralentizar"
 const ICONS = { 13: '💣', 14: '⚡', 15: '🎨', 16: '⏬', 17: '❄️', 18: '★' };
 
 const PIECES = [
@@ -81,6 +86,12 @@ const linesEl = document.getElementById('lines');
 const levelEl = document.getElementById('level');
 const comboEl = document.getElementById('combo');
 const statusEl = document.getElementById('status');
+const energyEl = document.getElementById('energy');
+const energyFill = document.getElementById('energy-fill');
+const queueSection = document.getElementById('queue-section');
+const queueCanvas = document.getElementById('queue-canvas');
+const queueCtx = queueCanvas.getContext('2d');
+const abilityOverlay = document.getElementById('ability-overlay');
 const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
@@ -91,6 +102,7 @@ const themeLabel = document.getElementById('theme-label');
 let board, current, next, hold, holdUsed, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
 let combo, b2b, lastRotate, effects, flashAt, flashPower;
 let pendingPower, nextPowerAt, freezeMs;
+let queue, energy, peekMs, slowMs, undoSnap, menuOpen;
 let audioCtx = null, muted = false;
 
 // ---- Sonido (Web Audio sintetizado, sin archivos) ----
@@ -130,10 +142,30 @@ function makePiece(type) {
   return { type, shape, x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2), y: 0 };
 }
 
-function randomPiece() {
+function randomType() {
   if (Math.random() < PENTOMINO_CHANCE)
-    return makePiece(PENTOMINO_TYPES[Math.floor(Math.random() * PENTOMINO_TYPES.length)]);
-  return makePiece(Math.floor(Math.random() * BASE_TYPES) + 1);
+    return PENTOMINO_TYPES[Math.floor(Math.random() * PENTOMINO_TYPES.length)];
+  return Math.floor(Math.random() * BASE_TYPES) + 1;
+}
+
+function randomPiece() {
+  return makePiece(randomType());
+}
+
+// Cola de piezas futuras (permite la habilidad "ver las próximas 5")
+function fillQueue() {
+  while (queue.length < 5) queue.push(randomType());
+}
+
+// Avanza `next`: primero un power-up pendiente; si no, la cabeza de la cola
+function advanceNext() {
+  if (pendingPower) {
+    next = makePiece(POWER_TYPES[Math.floor(Math.random() * POWER_TYPES.length)]);
+    pendingPower = false;
+  } else {
+    next = makePiece(queue.shift());
+    fillQueue();
+  }
 }
 
 function collide(shape, ox, oy) {
@@ -286,6 +318,7 @@ function clearLines(tspin = false) {
     flashAt = performance.now();
     flashPower = Math.min(0.15 + cleared * 0.1, 0.5);
     lines += cleared;
+    energy = Math.min(ENERGY_MAX, energy + cleared * ENERGY_PER_LINE);
     if (lines >= nextPowerAt) { pendingPower = true; nextPowerAt = lines - (lines % POWER_EVERY) + POWER_EVERY; }
     level = Math.floor(lines / 10) + 1;
     dropInterval = Math.max(100, 1000 - (level - 1) * 90);
@@ -328,6 +361,10 @@ function softDrop() {
 }
 
 function lockPiece() {
+  undoSnap = {
+    board: board.map(row => [...row]), type: current.type,
+    score, lines, level, combo, b2b, dropInterval, nextPowerAt, pendingPower,
+  };
   const tspin = isTSpin();
   if (POWER_TYPES.includes(current.type)) applyPower(current);
   else merge();
@@ -339,17 +376,13 @@ function lockPiece() {
 function spawn() {
   lastRotate = false;
   current = next;
-  if (pendingPower) {
-    next = makePiece(POWER_TYPES[Math.floor(Math.random() * POWER_TYPES.length)]);
-    pendingPower = false;
-  } else {
-    next = randomPiece();
-  }
+  advanceNext();
   if (collide(current.shape, current.x, current.y)) {
     endGame();
   }
   drawNext();
   drawHold();
+  drawQueue();
 }
 
 // Reserva la pieza actual; si ya hay una guardada se intercambian. Una vez por pieza.
@@ -360,8 +393,9 @@ function holdPiece() {
     current = makePiece(hold);
   } else {
     current = next;
-    next = randomPiece();
+    advanceNext();
     drawNext();
+    drawQueue();
   }
   hold = type;
   holdUsed = true;
@@ -376,6 +410,8 @@ function holdPiece() {
 function updateStatus() {
   const parts = [];
   if (freezeMs > 0) parts.push(`❄ ${Math.ceil(freezeMs / 1000)}s`);
+  if (slowMs > 0) parts.push(`🐢 ${Math.ceil(slowMs / 1000)}s`);
+  if (peekMs > 0) parts.push(`👁 ${Math.ceil(peekMs / 1000)}s`);
   const text = parts.join(' ') || '–';
   if (statusEl.textContent !== text) statusEl.textContent = text;
 }
@@ -384,6 +420,8 @@ function updateHUD() {
   scoreEl.textContent = score.toLocaleString();
   linesEl.textContent = lines;
   levelEl.textContent = level;
+  energyFill.style.width = `${energy}%`;
+  energyEl.classList.toggle('full', energy >= ENERGY_MAX);
   comboEl.textContent = (combo > 0 ? `x${Math.min(combo, MAX_COMBO)}` : '–') + (b2b ? ' B2B' : '');
 }
 
@@ -500,6 +538,19 @@ function drawNext() {
   drawPreview(nextCtx, nextCanvas, next.shape);
 }
 
+function drawQueue() {
+  queueCtx.clearRect(0, 0, queueCanvas.width, queueCanvas.height);
+  if (peekMs <= 0) return;
+  queue.slice(0, 5).forEach((type, i) => {
+    const shape = PIECES[type];
+    const offX = i * 4 + Math.floor((4 - shape[0].length) / 2);
+    const offY = Math.floor((4 - shape.length) / 2);
+    for (let r = 0; r < shape.length; r++)
+      for (let c = 0; c < shape[r].length; c++)
+        drawBlock(queueCtx, offX + c, offY + r, shape[r][c], 7);
+  });
+}
+
 function drawHold() {
   drawPreview(holdCtx, holdCanvas, hold ? PIECES[hold] : null);
   holdCanvas.classList.toggle('locked', !!holdUsed);
@@ -513,8 +564,77 @@ function endGame() {
   overlay.classList.remove('hidden');
 }
 
+// ---- Habilidades (se cargan con la barra de energía; E abre el menú) ----
+const ABILITIES = {
+  1() { // ver las próximas 5 piezas
+    peekMs = PEEK_MS;
+    queueSection.classList.remove('hidden');
+    drawQueue();
+    return true;
+  },
+  2() { // intercambiar la pieza actual por otra del pool básico
+    let type;
+    do { type = Math.floor(Math.random() * BASE_TYPES) + 1; } while (type === current.type);
+    const swapped = makePiece(type);
+    if (collide(swapped.shape, swapped.x, swapped.y)) return false;
+    current = swapped;
+    lastRotate = false;
+    dropAccum = 0;
+    return true;
+  },
+  3() { // ralentizar el tiempo
+    slowMs = SLOW_MS;
+    return true;
+  },
+  4() { // deshacer la última colocación
+    if (!undoSnap) return false;
+    const s = undoSnap;
+    board = s.board;
+    ({ score, lines, level, combo, b2b, dropInterval, nextPowerAt, pendingPower } = s);
+    queue.unshift(next.type);
+    queue.pop();
+    next = makePiece(current.type);
+    current = makePiece(s.type);
+    undoSnap = null;
+    lastRotate = false;
+    holdUsed = false;
+    dropAccum = 0;
+    drawNext();
+    drawHold();
+    drawQueue();
+    return true;
+  },
+};
+
+function openAbilityMenu() {
+  if (energy < ENERGY_MAX || paused || gameOver || menuOpen) return;
+  menuOpen = true;
+  paused = true;
+  cancelAnimationFrame(animId);
+  abilityOverlay.classList.remove('hidden');
+}
+
+function closeAbilityMenu() {
+  if (!menuOpen) return;
+  menuOpen = false;
+  paused = false;
+  abilityOverlay.classList.add('hidden');
+  lastTime = performance.now();
+  loop(lastTime);
+}
+
+function useAbility(n) {
+  if (!ABILITIES[n] || !ABILITIES[n]()) return; // no disponible: el menú sigue abierto
+  energy = 0;
+  beep(660, 0.1, 'triangle');
+  beep(990, 0.15, 'triangle', 0.05, 0.08);
+  updateHUD();
+  closeAbilityMenu();
+  draw();
+}
+
 function togglePause() {
-  if (gameOver) return;
+  if (gameOver || menuOpen) return;
   paused = !paused;
   if (!paused) {
     lastTime = performance.now();
@@ -535,7 +655,12 @@ function loop(ts) {
     freezeMs = Math.max(0, freezeMs - dt);
     dropAccum = 0;
   }
-  if (dropAccum >= dropInterval) {
+  if (slowMs > 0) slowMs = Math.max(0, slowMs - dt);
+  if (peekMs > 0) {
+    peekMs = Math.max(0, peekMs - dt);
+    if (peekMs === 0) { queueSection.classList.add('hidden'); drawQueue(); }
+  }
+  if (dropAccum >= (slowMs > 0 ? dropInterval * SLOW_FACTOR : dropInterval)) {
     dropAccum = 0;
     if (!collide(current.shape, current.x, current.y + 1)) {
       current.y++;
@@ -560,6 +685,15 @@ function init() {
   pendingPower = false;
   nextPowerAt = POWER_EVERY;
   freezeMs = 0;
+  slowMs = 0;
+  peekMs = 0;
+  energy = 0;
+  undoSnap = null;
+  menuOpen = false;
+  queue = [];
+  fillQueue();
+  queueSection.classList.add('hidden');
+  abilityOverlay.classList.add('hidden');
   effects = [];
   flashAt = 0;
   flashPower = 0;
@@ -571,7 +705,8 @@ function init() {
   dropInterval = 1000;
   dropAccum = 0;
   lastTime = performance.now();
-  next = randomPiece();
+  next = makePiece(queue.shift());
+  fillQueue();
   spawn();
   updateHUD();
   overlay.classList.add('hidden');
@@ -580,6 +715,12 @@ function init() {
 }
 
 document.addEventListener('keydown', e => {
+  if (menuOpen) {
+    if (e.code === 'Escape' || e.code === 'KeyE') closeAbilityMenu();
+    else if (/^(Digit|Numpad)[1-4]$/.test(e.code)) useAbility(+e.code.slice(-1));
+    return;
+  }
+  if (e.code === 'KeyE') { openAbilityMenu(); return; }
   if (e.code === 'KeyP') { togglePause(); return; }
   if (e.code === 'KeyM') { muted = !muted; return; }
   if (paused || gameOver) return;
@@ -630,6 +771,8 @@ themeToggle.addEventListener('click', () => {
 });
 
 restartBtn.addEventListener('click', init);
+document.querySelectorAll('[data-ability]').forEach(btn =>
+  btn.addEventListener('click', () => useAbility(+btn.dataset.ability)));
 
 let savedTheme = 'dark';
 try { savedTheme = localStorage.getItem('theme') || 'dark'; } catch (e) { /* ignorar */ }

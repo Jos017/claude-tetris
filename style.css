@@ -208,6 +208,76 @@ kbd {
   color: var(--kbd-text);
 }
 
+.panel-section.hidden {
+  display: none;
+}
+
+#queue-canvas {
+  display: block;
+  border: 1px solid var(--border);
+  background: var(--board-bg);
+  border-radius: 4px;
+}
+
+/* ---- Barra de energía ---- */
+.energy {
+  width: 100%;
+  height: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--board-bg);
+  overflow: hidden;
+}
+
+.energy-fill {
+  width: 0;
+  height: 100%;
+  background: var(--value);
+  transition: width 0.2s;
+}
+
+.energy.full .energy-fill {
+  background: #ffd54f;
+  animation: pulse 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+  to { opacity: 0.45; }
+}
+
+/* ---- Menús (habilidades, modos) ---- */
+.menu-title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  color: var(--value);
+}
+
+.menu-btn {
+  width: 260px;
+  background: var(--kbd-bg);
+  color: var(--text);
+  border: 1px solid var(--kbd-border);
+  border-radius: 6px;
+  padding: 9px 12px;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-btn:hover {
+  border-color: var(--value);
+}
+
+.menu-btn kbd {
+  margin-right: 6px;
+}
+
+.menu-hint {
+  font-size: 11px;
+  color: var(--muted);
+}
+
 /* ---- Overlay ---- */
 .overlay {
   position: absolute;

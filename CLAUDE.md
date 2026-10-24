@@ -20,6 +20,7 @@ Three files: `index.html` (DOM + two canvases), `style.css`, `game.js` (all logi
 - Pause/game over work by `cancelAnimationFrame(animId)`; unpause restarts `loop` manually. Overlay shared for both states.
 - Scoring lives in `clearLines(tspin)`: combo multiplier (`combo`, cap `MAX_COMBO`), B2B (`b2b`), T-spin via `isTSpin()` (needs `lastRotate`, reset on any move/drop/spawn/hold), perfect clear. Feedback = `announce()` floating texts + `flashAt` flash (drawn in `drawEffects`) + `beep()`/`playNotes()` Web Audio (`muted` toggled with `M`).
 - Power-ups: 1×1 pieces `13–17` (`POWER_TYPES`) queued via `pendingPower` (every `POWER_EVERY` lines) in `spawn`; `lockPiece` calls `applyPower` instead of `merge`. `18` = `WILD` board-only cell (from "tinte"), wiped by the next line clear. `ICONS` map draws the symbol in `drawBlock`. Freeze = `freezeMs` countdown in `loop`; `updateStatus` renders active timers.
+- Piece source: `queue` (5 upcoming types) → `advanceNext()` sets `next` (power-up pending takes priority); used by `spawn`, `holdPiece`, `init`. Abilities (`ABILITIES`, energy bar, `E` menu = `menuOpen` + `paused`) use `queue`, `undoSnap` (taken at top of `lockPiece`), `slowMs`, `peekMs`.
 - Rotation: `rotateCW` + horizontal kick list `[0,-1,1,-2,2]` in `tryRotate` (no SRS, no floor kicks).
 - Input: single `keydown` listener using `e.code`; calls `updateHUD()` after every key.
 

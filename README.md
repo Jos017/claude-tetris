@@ -45,6 +45,7 @@ Es una versión jugable del Tetris clásico con todas las mecánicas que esperar
 - **Hold (reservar pieza)**: `C` o `Shift` guardan la pieza actual en el panel izquierdo y la intercambian si ya había una. Solo una vez por pieza; el slot se atenúa mientras está bloqueado.
 - **Sistema de puntuación** clásico de Tetris (100 / 300 / 500 / 800 multiplicado por nivel).
 - **Power-ups** (una pieza 1×1 especial cada 5 líneas, aparece como siguiente pieza): 💣 **Bomba** (borra un 3×3), ⚡ **Rayo** (limpia la columna y la fila de la superficie donde cae), 🎨 **Tinte** (el color más abundante pasa a comodín ★; todos los comodines desaparecen con la siguiente limpieza de líneas, +20 × nivel cada uno), ⏬ **Gravedad** (compacta los huecos de cada columna) y ❄️ **Congelar** (5 s sin caída automática; el estado se ve en `STATUS`).
+- **Habilidades**: una barra de energía (+10 por línea) se llena y con `E` se abre un menú (el juego se pausa) para elegir: `1` ver las próximas 5 piezas (15 s), `2` intercambiar la pieza actual, `3` ralentizar el tiempo (10 s) o `4` deshacer la última colocación. Cada uso consume toda la barra. «Reservar pieza» es el Hold (`C`).
 - **Combos y multiplicadores**: limpiar líneas en piezas consecutivas multiplica la puntuación (x2, x3… hasta x8). Bonus por **T-spin** (regla de 3 esquinas), **Back-to-Back** (Tetris/T-spin seguidos, ×1.5) y **Perfect Clear** (+2000 × nivel).
 - **Efectos**: textos flotantes y destello en el tablero, más sonidos sintetizados con Web Audio (sin archivos). `M` silencia.
 - **Niveles** que aumentan cada 10 líneas y aceleran la caída.
@@ -93,6 +94,7 @@ Después abre `http://localhost:8000` en el navegador.
 | `↓`       | Soft drop (bajar más rápido)      |
 | `Espacio` | Hard drop (caída instantánea)     |
 | `C` / `Shift` | Reservar / intercambiar pieza (hold) |
+| `E`       | Menú de habilidades (barra llena) |
 | `P`       | Pausar / reanudar                 |
 | `M`       | Activar / silenciar el sonido     |
 
