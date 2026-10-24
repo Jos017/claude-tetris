@@ -110,6 +110,10 @@ const goalLabel = document.getElementById('goal-label');
 const goalEl = document.getElementById('goal');
 const modesBtn = document.getElementById('modes-btn');
 const overlayModesBtn = document.getElementById('overlay-modes-btn');
+const pauseOverlay = document.getElementById('pause-overlay');
+const pauseMain = document.getElementById('pause-main');
+const pauseControls = document.getElementById('pause-controls');
+const startLevelVal = document.getElementById('start-level-val');
 const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
@@ -122,6 +126,8 @@ let combo, b2b, lastRotate, effects, flashAt, flashPower;
 let pendingPower, nextPowerAt, freezeMs;
 let queue, energy, peekMs, slowMs, undoSnap, menuOpen, activeMenu;
 let mode = null, baseLevel, elapsed, garbageAccum, lockedAt;
+let startLevelPref = 1, freshKey = false; // nivel inicial elegido (1–10); freshKey = ignorar teclas repetidas tras reanudar
+const MAX_START_LEVEL = 10;
 let audioCtx = null, muted = false;
 
 // ---- Sonido (Web Audio sintetizado, sin archivos) ----
@@ -702,8 +708,11 @@ function closeMenu() {
   menuOpen = false;
   activeMenu.classList.add('hidden');
   activeMenu = null;
+  showPauseView(false);
+  freshKey = true; // las teclas mantenidas no mueven la pieza al volver
   if (gameOver) return;
   paused = false;
+  dropAccum = 0;
   lastTime = performance.now();
   loop(lastTime);
 }
@@ -730,15 +739,58 @@ function useAbility(n) {
 
 function togglePause() {
   if (gameOver || menuOpen) return;
-  paused = !paused;
-  if (!paused) {
-    lastTime = performance.now();
-    loop(lastTime);
-  } else {
-    cancelAnimationFrame(animId);
-    overlayTitle.textContent = 'PAUSA';
-    overlayScore.textContent = '';
-    overlay.classList.remove('hidden');
+  openMenu(pauseOverlay);
+  pauseButtons()[0].focus();
+}
+
+// Menú de pausa: vista principal o lista de controles
+function pauseButtons() {
+  return [...(pauseControls.classList.contains('hidden') ? pauseMain : pauseControls).querySelectorAll('.menu-btn')];
+}
+
+function showPauseView(controls) {
+  pauseMain.classList.toggle('hidden', controls);
+  pauseControls.classList.toggle('hidden', !controls);
+  if (menuOpen && activeMenu === pauseOverlay) pauseButtons()[0].focus();
+}
+
+function setStartLevel(n) {
+  startLevelPref = ((n - 1 + MAX_START_LEVEL) % MAX_START_LEVEL) + 1;
+  startLevelVal.textContent = startLevelPref;
+  try { localStorage.setItem('startLevel', startLevelPref); } catch (e) { /* almacenamiento no disponible */ }
+}
+
+function pauseAction(name) {
+  if (name === 'controls') showPauseView(true);
+  else if (name === 'back') showPauseView(false);
+  else if (name === 'level') setStartLevel(startLevelPref + 1);
+  else {
+    if (document.activeElement) document.activeElement.blur(); // Space (caída) no debe reactivar el botón
+    if (name === 'resume') closeMenu(); else init();
+  }
+}
+
+function pauseKey(e) {
+  if (e.repeat) return; // teclas mantenidas no actúan sobre el menú
+  if (e.code === 'KeyM') { muted = !muted; return; }
+  const inControls = !pauseControls.classList.contains('hidden');
+  if (e.code === 'Escape' || e.code === 'KeyP') {
+    if (inControls) showPauseView(false); else closeMenu();
+    return;
+  }
+  const btns = pauseButtons();
+  const i = btns.indexOf(document.activeElement);
+  if (e.code === 'ArrowDown' || e.code === 'ArrowUp') {
+    e.preventDefault();
+    const d = e.code === 'ArrowDown' ? 1 : -1;
+    btns[(i + d + btns.length) % btns.length].focus();
+  } else if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight') && i >= 0 && btns[i].dataset.pause === 'level') {
+    e.preventDefault();
+    setStartLevel(startLevelPref + (e.code === 'ArrowRight' ? 1 : -1));
+  } else if (!inControls && /^(Digit|Numpad)[1-4]$/.test(e.code)) {
+    pauseAction(['resume', 'restart', 'controls', 'level'][+e.code.slice(-1) - 1]);
+  } else if (e.code === 'Space') {
+    e.preventDefault(); // Enter activa el botón enfocado; Space no
   }
 }
 
@@ -779,7 +831,7 @@ function loop(ts) {
 
 function init() {
   board = createBoard();
-  baseLevel = mode && mode.startLevel ? mode.startLevel : 1;
+  baseLevel = mode && mode.startLevel ? mode.startLevel : startLevelPref;
   elapsed = 0;
   garbageAccum = 0;
   lockedAt = performance.now();
@@ -807,6 +859,9 @@ function init() {
   queueSection.classList.add('hidden');
   abilityOverlay.classList.add('hidden');
   modeOverlay.classList.add('hidden');
+  pauseOverlay.classList.add('hidden');
+  showPauseView(false);
+  freshKey = true;
   overlayTitle.classList.remove('win');
   activeMenu = null;
   effects = [];
@@ -832,6 +887,9 @@ function init() {
 }
 
 document.addEventListener('keydown', e => {
+  if (e.repeat && freshKey) return; // tecla mantenida desde antes de reanudar
+  if (!e.repeat) freshKey = false;
+  if (menuOpen && activeMenu === pauseOverlay) { pauseKey(e); return; }
   if (menuOpen) {
     if (e.code === 'Escape' || (e.code === 'KeyE' && activeMenu === abilityOverlay)) closeMenu();
     else if (activeMenu === abilityOverlay && /^(Digit|Numpad)[1-4]$/.test(e.code)) useAbility(+e.code.slice(-1));
@@ -839,7 +897,7 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (e.code === 'KeyE') { openAbilityMenu(); return; }
-  if (e.code === 'KeyP') { togglePause(); return; }
+  if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
   if (e.code === 'KeyM') { muted = !muted; return; }
   if (paused || gameOver) return;
   switch (e.code) {
@@ -889,6 +947,8 @@ themeToggle.addEventListener('click', () => {
 });
 
 restartBtn.addEventListener('click', init);
+document.querySelectorAll('[data-pause]').forEach(btn =>
+  btn.addEventListener('click', () => pauseAction(btn.dataset.pause)));
 document.querySelectorAll('[data-ability]').forEach(btn =>
   btn.addEventListener('click', () => useAbility(+btn.dataset.ability)));
 document.querySelectorAll('[data-mode]').forEach(btn =>
@@ -899,5 +959,6 @@ overlayModesBtn.addEventListener('click', () => openMenu(modeOverlay));
 let savedTheme = 'dark';
 try { savedTheme = localStorage.getItem('theme') || 'dark'; } catch (e) { /* ignorar */ }
 setTheme(savedTheme, false);
+try { setStartLevel(parseInt(localStorage.getItem('startLevel'), 10) || 1); } catch (e) { /* ignorar */ }
 
 init();

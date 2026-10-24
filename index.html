@@ -100,6 +100,32 @@
       </div>
     </div>
 
+    <div id="pause-overlay" class="overlay hidden">
+      <div class="overlay-box">
+        <p class="menu-title">PAUSA</p>
+        <div id="pause-main" class="pause-view">
+          <button class="menu-btn" data-pause="resume"><kbd>1</kbd> Reanudar</button>
+          <button class="menu-btn" data-pause="restart"><kbd>2</kbd> Reiniciar</button>
+          <button class="menu-btn" data-pause="controls"><kbd>3</kbd> Ver controles</button>
+          <button class="menu-btn" data-pause="level"><kbd>4</kbd> Nivel inicial: <span id="start-level-val">1</span></button>
+          <p class="menu-hint">↑↓ Enter · Esc / P para reanudar · en Nivel inicial: ←→</p>
+        </div>
+        <div id="pause-controls" class="pause-view hidden">
+          <ul class="pause-keys">
+            <li><kbd>←</kbd><kbd>→</kbd> mover</li>
+            <li><kbd>↑</kbd> / <kbd>X</kbd> rotar</li>
+            <li><kbd>↓</kbd> bajar</li>
+            <li><kbd>Space</kbd> caída</li>
+            <li><kbd>C</kbd> / <kbd>Shift</kbd> reservar</li>
+            <li><kbd>E</kbd> habilidad</li>
+            <li><kbd>P</kbd> / <kbd>Esc</kbd> pausa</li>
+            <li><kbd>M</kbd> sonido on/off</li>
+          </ul>
+          <button class="menu-btn" data-pause="back">Volver</button>
+        </div>
+      </div>
+    </div>
+
     <div id="overlay" class="overlay hidden">
       <div class="overlay-box">
         <p id="overlay-title">GAME OVER</p>
