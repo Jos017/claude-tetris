@@ -49,8 +49,9 @@ Es una versión jugable del Tetris clásico con todas las mecánicas que esperar
 - **Modos desafío** (botón «Modos de juego» o teclas `0`–`5` en el menú): **Sprint** (40 líneas en 2:00), **Basura** (sobrevive 90 s mientras sube una fila con hueco cada 10 s), **Tablero fijo** (15 líneas con bloques pre-colocados), **Invisibles** (las piezas se ocultan poco después de asentarse; sin pieza fantasma) y **Rotación inversa** (empieza en nivel 6 con el giro invertido). El panel muestra el objetivo y el tiempo restante.
 - **Combos y multiplicadores**: limpiar líneas en piezas consecutivas multiplica la puntuación (x2, x3… hasta x8). Bonus por **T-spin** (regla de 3 esquinas), **Back-to-Back** (Tetris/T-spin seguidos, ×1.5) y **Perfect Clear** (+2000 × nivel).
 - **Efectos**: textos flotantes y destello en el tablero, más sonidos sintetizados con Web Audio (sin archivos). `M` silencia.
+- **Tabla de records local**: el Top 5 (nombre, puntuación, líneas) se guarda en `localStorage` (clave `records`). Se muestra en la pantalla de inicio (botón «Jugar») y en el Game Over; si tu puntuación entra al top aparece «¡Nuevo récord!» con un campo para el nombre y, tras «Guardar», tu fila se resalta. También registra el mejor combo y las líneas máximas, y «Borrar records» (con confirmación) lo reinicia todo.
 - **Niveles** que aumentan cada 10 líneas y aceleran la caída.
-- **Pausa** y **Game Over** con opción de reinicio.
+- **Menú de pausa** (`P` o `Esc`): Reanudar, Reiniciar, Ver controles y Nivel inicial (1–10, se recuerda; se aplica en la próxima partida clásica, los modos desafío con nivel propio conservan el suyo). Navega con `↑`/`↓` + `Enter` o con `1`–`4`; mientras está abierto el juego no recibe teclas, y al reanudar las teclas mantenidas se ignoran hasta una pulsación nueva. También hay **Game Over** con opción de reinicio.
 - **Modo oscuro / claro**: el juego inicia en oscuro; un switch en el panel lateral cambia a claro y la preferencia se guarda en `localStorage`. Las piezas conservan su color y en modo claro llevan un borde para contrastar con el fondo.
 
 ---
@@ -96,7 +97,7 @@ Después abre `http://localhost:8000` en el navegador.
 | `Espacio` | Hard drop (caída instantánea)     |
 | `C` / `Shift` | Reservar / intercambiar pieza (hold) |
 | `E`       | Menú de habilidades (barra llena) |
-| `P`       | Pausar / reanudar                 |
+| `P` / `Esc` | Menú de pausa / reanudar        |
 | `M`       | Activar / silenciar el sonido     |
 
 ---
@@ -111,7 +112,7 @@ Define la estructura visual:
 
 - Un `<canvas id="board">` de **300 × 600** píxeles donde se renderiza el tablero.
 - Un panel izquierdo con `HOLD`, `SCORE`, `LINES`, `LEVEL` y uno derecho con la siguiente pieza y la lista de controles.
-- Un overlay para los estados **PAUSA** y **GAME OVER**.
+- Un menú de pausa (`#pause-overlay`) y un overlay de **GAME OVER**.
 
 ### 2. `style.css`
 
