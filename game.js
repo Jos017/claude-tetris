@@ -14,6 +14,10 @@ const COLORS = [
   '#64b5f6', // J - light blue
   '#ffb74d', // L - orange
   '#90a4ae', // N - tuerca (gris acero)
+  '#f06292', // + - cruz (rosa)
+  '#4db6ac', // U (verde azulado)
+  '#a1887f', // Y (marrón)
+  '#fff176', // 1x1 - single (amarillo claro)
 ];
 
 const PIECES = [
@@ -26,7 +30,17 @@ const PIECES = [
   [[6,0,0],[6,6,6],[0,0,0]],                  // J
   [[0,0,7],[7,7,7],[0,0,0]],                  // L
   [[8,8,8],[8,0,8],[8,8,8]],                  // N - tuerca (hueco central)
+  [[0,9,0],[9,9,9],[0,9,0]],                  // + (pentominó)
+  [[10,0,10],[10,10,10],[0,0,0]],             // U (pentominó)
+  [[0,0,0,0],[11,11,11,11],[0,11,0,0],[0,0,0,0]], // Y (pentominó)
+  [[12]],                                      // 1x1 - recompensa tras un Tetris
 ];
+
+// Tipos que salen al azar: 1–8 uniformes; los pentominós (9–11) son ocasionales; el 1x1 solo como recompensa
+const BASE_TYPES = 8;
+const PENTOMINO_TYPES = [9, 10, 11];
+const PENTOMINO_CHANCE = 0.1;
+const SINGLE = 12;
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
 
@@ -65,7 +79,9 @@ function makePiece(type) {
 }
 
 function randomPiece() {
-  return makePiece(Math.floor(Math.random() * (PIECES.length - 1)) + 1);
+  if (Math.random() < PENTOMINO_CHANCE)
+    return makePiece(PENTOMINO_TYPES[Math.floor(Math.random() * PENTOMINO_TYPES.length)]);
+  return makePiece(Math.floor(Math.random() * BASE_TYPES) + 1);
 }
 
 function collide(shape, ox, oy) {
@@ -120,6 +136,7 @@ function clearLines() {
     }
   }
   if (cleared) {
+    if (cleared === 4) { next = makePiece(SINGLE); drawNext(); } // recompensa tras un Tetris
     lines += cleared;
     score += (LINE_SCORES[cleared] || 0) * level;
     level = Math.floor(lines / 10) + 1;
