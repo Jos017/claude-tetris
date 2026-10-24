@@ -44,6 +44,8 @@ Es una versión jugable del Tetris clásico con todas las mecánicas que esperar
 - **Vista previa** de la siguiente pieza.
 - **Hold (reservar pieza)**: `C` o `Shift` guardan la pieza actual en el panel izquierdo y la intercambian si ya había una. Solo una vez por pieza; el slot se atenúa mientras está bloqueado.
 - **Sistema de puntuación** clásico de Tetris (100 / 300 / 500 / 800 multiplicado por nivel).
+- **Combos y multiplicadores**: limpiar líneas en piezas consecutivas multiplica la puntuación (x2, x3… hasta x8). Bonus por **T-spin** (regla de 3 esquinas), **Back-to-Back** (Tetris/T-spin seguidos, ×1.5) y **Perfect Clear** (+2000 × nivel).
+- **Efectos**: textos flotantes y destello en el tablero, más sonidos sintetizados con Web Audio (sin archivos). `M` silencia.
 - **Niveles** que aumentan cada 10 líneas y aceleran la caída.
 - **Pausa** y **Game Over** con opción de reinicio.
 - **Modo oscuro / claro**: el juego inicia en oscuro; un switch en el panel lateral cambia a claro y la preferencia se guarda en `localStorage`. Las piezas conservan su color y en modo claro llevan un borde para contrastar con el fondo.
@@ -91,6 +93,7 @@ Después abre `http://localhost:8000` en el navegador.
 | `Espacio` | Hard drop (caída instantánea)     |
 | `C` / `Shift` | Reservar / intercambiar pieza (hold) |
 | `P`       | Pausar / reanudar                 |
+| `M`       | Activar / silenciar el sonido     |
 
 ---
 

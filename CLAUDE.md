@@ -18,6 +18,7 @@ Three files: `index.html` (DOM + two canvases), `style.css`, `game.js` (all logi
 - Board: `ROWS×COLS` matrix, `0` = empty, `1–12` = index into both `COLORS` and `PIECES` (same index scheme).
 - Flow: `loop` (rAF, accumulates `dropAccum` vs `dropInterval`) → `lockPiece` → `merge` → `clearLines` (updates score/level/`dropInterval`) → `spawn` (calls `endGame` if new piece collides).
 - Pause/game over work by `cancelAnimationFrame(animId)`; unpause restarts `loop` manually. Overlay shared for both states.
+- Scoring lives in `clearLines(tspin)`: combo multiplier (`combo`, cap `MAX_COMBO`), B2B (`b2b`), T-spin via `isTSpin()` (needs `lastRotate`, reset on any move/drop/spawn/hold), perfect clear. Feedback = `announce()` floating texts + `flashAt` flash (drawn in `drawEffects`) + `beep()`/`playNotes()` Web Audio (`muted` toggled with `M`).
 - Rotation: `rotateCW` + horizontal kick list `[0,-1,1,-2,2]` in `tryRotate` (no SRS, no floor kicks).
 - Input: single `keydown` listener using `e.code`; calls `updateHUD()` after every key.
 
